@@ -15,6 +15,9 @@ ENV PORT=3000
 ENV UPLOAD_DIR=/data/uploads
 ENV DATA_DIR=/data/app
 
+HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
+  CMD wget -qO- http://localhost:3000/health || exit 1
+
 RUN mkdir -p /data/uploads /data/app && chown -R node:node /data
 
 USER node

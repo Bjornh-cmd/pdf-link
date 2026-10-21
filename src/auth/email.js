@@ -1,7 +1,7 @@
 import crypto from "node:crypto";
 import express from "express";
 import { Resend } from "resend";
-import { getEmailTokens, saveEmailTokens } from "./store.js";
+import { getEmailTokenList, saveEmailTokenList } from "./store.js";
 
 const TOKEN_TTL_MS = 15 * 60 * 1000;
 const emailRequestCounts = new Map();
@@ -27,14 +27,21 @@ function checkEmailRateLimit(ip) {
   return entry.count <= max;
 }
 
-async function pruneExpiredTokens(tokens) {
+function pruneExpiredTokens(tokens) {
   const now = Date.now();
   return tokens.filter((t) => t.expiresAt > now);
+}
+
+function formatFromAddress(emailFrom) {
+  const trimmed = emailFrom.trim();
+  if (trimmed.includes("<")) return trimmed;
+  return `PDF Link <${trimmed}>`;
 }
 
 export function createEmailRouter({ baseUrl, allowedEmail, emailFrom, resendApiKey }) {
   const router = express.Router();
   const resend = resendApiKey ? new Resend(resendApiKey) : null;
+  const from = formatFromAddress(emailFrom);
 
   router.post("/request", async (req, res) => {
     const ip = getClientIp(req);
@@ -42,16 +49,16 @@ export function createEmailRouter({ baseUrl, allowedEmail, emailFrom, resendApiK
       return res.status(429).json({ error: "Te veel verzoeken. Probeer later opnieuw." });
     }
 
-    const email = String(req.body?.email || "")
+    const allowed = allowedEmail.trim().toLowerCase();
+    const requested = String(req.body?.email || "")
       .trim()
       .toLowerCase();
-    const allowed = allowedEmail.trim().toLowerCase();
+    const email = requested && requested === allowed ? requested : allowed;
 
-    const okMessage = { ok: true, message: "Controleer je e-mail voor de inloglink." };
-
-    if (!email || email !== allowed) {
-      return res.json(okMessage);
-    }
+    const okMessage = {
+      ok: true,
+      message: `Controleer ${allowed} voor de inloglink.`,
+    };
 
     if (!resend) {
       return res.status(503).json({ error: "E-mail is niet geconfigureerd." });
@@ -61,16 +68,15 @@ export function createEmailRouter({ baseUrl, allowedEmail, emailFrom, resendApiK
     const tokenHash = hashToken(token);
     const expiresAt = Date.now() + TOKEN_TTL_MS;
 
-    const stored = await getEmailTokens();
-    const tokens = await pruneExpiredTokens(stored.tokens || []);
+    const tokens = pruneExpiredTokens(await getEmailTokenList());
     tokens.push({ hash: tokenHash, email, expiresAt, used: false });
-    await saveEmailTokens({ tokens });
+    await saveEmailTokenList(tokens);
 
     const verifyUrl = `${baseUrl.replace(/\/$/, "")}/api/auth/email/verify?token=${encodeURIComponent(token)}`;
 
     try {
-      await resend.emails.send({
-        from: emailFrom,
+      const { data, error } = await resend.emails.send({
+        from,
         to: email,
         subject: "Inloglink — PDF Link",
         html: `
@@ -79,6 +85,20 @@ export function createEmailRouter({ baseUrl, allowedEmail, emailFrom, resendApiK
           <p>Deze link is 15 minuten geldig en kan één keer gebruikt worden.</p>
         `,
       });
+
+      if (error) {
+        console.error("Resend API error:", error);
+        const domainIssue =
+          error.statusCode === 403 &&
+          String(error.message || "").toLowerCase().includes("domain");
+        return res.status(500).json({
+          error: domainIssue
+            ? "Afzenderdomein is niet geverifieerd bij Resend. Voeg support.snubstad.nl toe onder Domains, of gebruik tijdelijk onboarding@resend.dev (alleen test)."
+            : "Kon e-mail niet versturen. Controleer Resend API-key en afzender.",
+        });
+      }
+
+      console.log("Resend: e-mail verstuurd", { id: data?.id, to: email });
     } catch (err) {
       console.error("Resend error:", err);
       return res.status(500).json({ error: "Kon e-mail niet versturen." });
@@ -94,8 +114,7 @@ export function createEmailRouter({ baseUrl, allowedEmail, emailFrom, resendApiK
     }
 
     const tokenHash = hashToken(token);
-    const stored = await getEmailTokens();
-    const tokens = await pruneExpiredTokens(stored.tokens || []);
+    const tokens = pruneExpiredTokens(await getEmailTokenList());
     const index = tokens.findIndex((t) => t.hash === tokenHash && !t.used);
 
     if (index === -1) {
@@ -104,7 +123,7 @@ export function createEmailRouter({ baseUrl, allowedEmail, emailFrom, resendApiK
 
     const record = tokens[index];
     tokens[index] = { ...record, used: true };
-    await saveEmailTokens({ tokens });
+    await saveEmailTokenList(tokens);
 
     req.session.user = { method: "email", email: record.email };
     req.session.save((err) => {

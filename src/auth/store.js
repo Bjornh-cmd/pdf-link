@@ -34,12 +34,16 @@ export async function saveCredentials(credentials) {
   await writeJson("credentials.json", { credentials });
 }
 
-export async function getEmailTokens() {
-  return readJson("email-tokens.json", { tokens: [] });
+export async function getEmailTokenList() {
+  const data = await readJson("email-tokens.json", { tokens: [] });
+  const raw = data.tokens;
+  if (Array.isArray(raw)) return raw;
+  if (raw && Array.isArray(raw.tokens)) return raw.tokens;
+  return [];
 }
 
-export async function saveEmailTokens(tokens) {
-  await writeJson("email-tokens.json", { tokens });
+export async function saveEmailTokenList(tokenList) {
+  await writeJson("email-tokens.json", { tokens: tokenList });
 }
 
 export async function getChallenge(key) {

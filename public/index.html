@@ -4,66 +4,85 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>PDF Link</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&display=swap"
+      rel="stylesheet"
+    />
     <link rel="stylesheet" href="/styles.css" />
   </head>
   <body>
-    <main class="container">
-      <header>
-        <h1>PDF Link</h1>
-        <p class="subtitle">Upload een PDF en deel een link om te bekijken of te downloaden.</p>
-      </header>
+    <div class="page-grid">
+      <aside class="rail" aria-hidden="true">
+        <span class="rail-mark"></span>
+      </aside>
 
-      <div id="alert" class="alert hidden" role="alert"></div>
+      <main class="main">
+        <header class="page-header">
+          <p class="kicker">PDF hosting</p>
+          <h1>PDF Link</h1>
+          <p class="lede">
+            Upload een PDF en deel een link om te bekijken of te downloaden.
+          </p>
+        </header>
 
-      <section id="auth-section" class="card hidden">
-        <h2>Inloggen om te uploaden</h2>
-        <div class="tabs">
-          <button type="button" class="tab active" data-tab="email">E-mail</button>
-          <button type="button" class="tab" data-tab="passkey">Passkey</button>
-        </div>
+        <div id="alert" class="alert hidden" role="alert"></div>
 
-        <div id="panel-email" class="panel">
-          <form id="email-form">
-            <label for="email">E-mailadres</label>
-            <input id="email" name="email" type="email" autocomplete="email" required />
-            <button type="submit">Stuur inloglink</button>
+        <section id="auth-section" class="surface">
+          <div class="surface-head">
+            <h2>Toegang</h2>
+            <p class="surface-desc">
+              Inloglink wordt verstuurd naar
+              <strong id="login-email">bjornhoutman14@gmail.com</strong>.
+            </p>
+          </div>
+          <form id="email-form" class="stack">
+            <button type="submit" class="btn btn-primary">Stuur inloglink</button>
           </form>
-          <p class="hint">Je ontvangt een eenmalige link per e-mail.</p>
-        </div>
+          <p class="fine-print">Eenmalige link, 15 minuten geldig.</p>
+        </section>
 
-        <div id="panel-passkey" class="panel hidden">
-          <p id="passkey-hint" class="hint"></p>
-          <button type="button" id="passkey-register-btn" class="secondary hidden">
-            Passkey registreren
-          </button>
-          <button type="button" id="passkey-login-btn">Inloggen met passkey</button>
-        </div>
-      </section>
+        <section id="upload-section" class="surface hidden">
+          <div class="surface-head upload-head">
+            <div>
+              <h2>Upload</h2>
+              <p class="surface-desc">Alleen PDF, max. 25&nbsp;MB.</p>
+            </div>
+            <button type="button" id="logout-btn" class="btn btn-text">Uitloggen</button>
+          </div>
 
-      <section id="upload-section" class="card hidden">
-        <div class="upload-header">
-          <h2>PDF uploaden</h2>
-          <button type="button" id="logout-btn" class="link-btn">Uitloggen</button>
-        </div>
-        <div id="dropzone" class="dropzone" tabindex="0">
-          <p>Sleep een PDF hierheen of klik om te kiezen</p>
-          <input id="file-input" type="file" accept="application/pdf,.pdf" hidden />
-        </div>
-        <div id="upload-result" class="result hidden">
-          <p class="success">Upload gelukt!</p>
-          <div class="link-row">
-            <label>Bekijken</label>
-            <input id="view-url" type="text" readonly />
-            <button type="button" data-copy="view-url">Kopiëren</button>
+          <div id="dropzone" class="dropzone" tabindex="0" role="button" aria-label="PDF selecteren">
+            <span class="dropzone-label">Sleep een PDF hierheen</span>
+            <span class="dropzone-or">of</span>
+            <span class="dropzone-action">Bestand kiezen</span>
+            <input id="file-input" type="file" accept="application/pdf,.pdf" hidden />
           </div>
-          <div class="link-row">
-            <label>Download</label>
-            <input id="download-url" type="text" readonly />
-            <button type="button" data-copy="download-url">Kopiëren</button>
+
+          <div id="upload-result" class="result hidden">
+            <p class="result-title">Link gereed</p>
+            <div class="link-block">
+              <label for="view-url">Bekijken</label>
+              <div class="link-row">
+                <input id="view-url" type="text" readonly />
+                <button type="button" class="btn btn-primary" data-copy="view-url">Kopiëren</button>
+              </div>
+            </div>
+            <div class="link-block">
+              <label for="download-url">Download</label>
+              <div class="link-row">
+                <input id="download-url" type="text" readonly />
+                <button type="button" class="btn btn-primary" data-copy="download-url">Kopiëren</button>
+              </div>
+            </div>
           </div>
-        </div>
-      </section>
-    </main>
+        </section>
+
+        <footer class="page-footer">
+          <span>Deelbare links zijn publiek zonder inloggen.</span>
+        </footer>
+      </main>
+    </div>
     <script type="module" src="/app.js"></script>
   </body>
 </html>

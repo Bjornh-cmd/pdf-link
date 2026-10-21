@@ -2,16 +2,23 @@ services:
   web:
     build: .
     ports:
-      - "3000:3000"
+      - "${HOST_PORT:-3000}:3000"
     env_file:
-      - .env
+      - path: .env
+        required: false
     environment:
       UPLOAD_DIR: /data/uploads
       DATA_DIR: /data/app
       NODE_ENV: production
+      SESSION_SECRET: ${SESSION_SECRET:-change-me-in-production}
+      BASE_URL: ${BASE_URL:-http://localhost:3000}
+      EMAIL_FROM: ${EMAIL_FROM:-pdf@support.snubstad.nl}
+      ALLOWED_UPLOAD_EMAIL: ${ALLOWED_UPLOAD_EMAIL:-bjornhoutman14@gmail.com}
+      MAX_FILE_SIZE_MB: ${MAX_FILE_SIZE_MB:-25}
     volumes:
       - pdf_uploads:/data/uploads
       - app_data:/data/app
+    restart: unless-stopped
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:3000/health"]
       interval: 30s

@@ -1,3 +1,4 @@
+import "dotenv/config";
 import crypto from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
@@ -6,7 +7,6 @@ import express from "express";
 import session from "express-session";
 import multer from "multer";
 import { createEmailRouter } from "./auth/email.js";
-import { createPasskeyRouter } from "./auth/passkey.js";
 import { isAuthenticated, requireAuth } from "./auth/session.js";
 import {
   fileExists,
@@ -25,7 +25,9 @@ const BASE_URL = process.env.BASE_URL || `http://localhost:${PORT}`;
 const UPLOAD_DIR = process.env.UPLOAD_DIR || path.join(rootDir, "data", "uploads");
 const MAX_FILE_SIZE_MB = Number(process.env.MAX_FILE_SIZE_MB) || 25;
 const SESSION_SECRET = process.env.SESSION_SECRET || "dev-only-change-me";
-const isProduction = process.env.NODE_ENV === "production";
+const cookieSecure =
+  process.env.COOKIE_SECURE === "true" ||
+  (process.env.COOKIE_SECURE !== "false" && BASE_URL.startsWith("https://"));
 
 await fs.mkdir(UPLOAD_DIR, { recursive: true });
 
@@ -42,7 +44,7 @@ app.use(
     cookie: {
       httpOnly: true,
       sameSite: "lax",
-      secure: isProduction,
+      secure: cookieSecure,
       maxAge: 7 * 24 * 60 * 60 * 1000,
     },
   }),
@@ -52,13 +54,18 @@ const authConfig = {
   baseUrl: BASE_URL,
   allowedEmail: process.env.ALLOWED_UPLOAD_EMAIL || "bjornhoutman14@gmail.com",
   emailFrom: process.env.EMAIL_FROM || "pdf@support.snubstad.nl",
-  resendApiKey: process.env.RESEND_API_KEY || "",
-  rpName: process.env.RP_NAME || "PDF Link",
-  rpId: process.env.RP_ID || "localhost",
+  resendApiKey: (process.env.RESEND_API_KEY || "").trim(),
 };
+
+const allowedUploadEmail =
+  process.env.ALLOWED_UPLOAD_EMAIL || "bjornhoutman14@gmail.com";
 
 app.get("/health", (_req, res) => {
   res.json({ ok: true });
+});
+
+app.get("/api/config", (_req, res) => {
+  res.json({ loginEmail: allowedUploadEmail });
 });
 
 app.get("/api/auth/status", (req, res) => {
@@ -79,7 +86,6 @@ app.post("/api/auth/logout", (req, res) => {
 });
 
 app.use("/api/auth/email", createEmailRouter(authConfig));
-app.use("/api/auth/passkey", createPasskeyRouter(authConfig));
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -163,5 +169,9 @@ app.use((err, _req, res, next) => {
 });
 
 app.listen(PORT, () => {
+  const emailReady = Boolean(authConfig.resendApiKey);
   console.log(`PDF Link listening on ${PORT}`);
+  if (!emailReady) {
+    console.warn("RESEND_API_KEY ontbreekt — e-mail inlog werkt niet.");
+  }
 });

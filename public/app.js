@@ -1,20 +1,13 @@
-import {
-  startAuthentication,
-  startRegistration,
-} from "https://esm.sh/@simplewebauthn/browser@13.1.1";
-
 const authSection = document.getElementById("auth-section");
 const uploadSection = document.getElementById("upload-section");
 const alertEl = document.getElementById("alert");
 const emailForm = document.getElementById("email-form");
+const loginEmailEl = document.getElementById("login-email");
 const dropzone = document.getElementById("dropzone");
 const fileInput = document.getElementById("file-input");
 const uploadResult = document.getElementById("upload-result");
 const viewUrlInput = document.getElementById("view-url");
 const downloadUrlInput = document.getElementById("download-url");
-const passkeyHint = document.getElementById("passkey-hint");
-const passkeyRegisterBtn = document.getElementById("passkey-register-btn");
-const passkeyLoginBtn = document.getElementById("passkey-login-btn");
 
 function showAlert(message, type = "error") {
   alertEl.textContent = message;
@@ -34,45 +27,21 @@ function setAuthenticated(authenticated) {
 async function refreshAuth() {
   const res = await fetch("/api/auth/status", { credentials: "include" });
   const data = await res.json();
+  if (data.user?.email && loginEmailEl) {
+    loginEmailEl.textContent = data.user.email;
+  }
   setAuthenticated(data.authenticated);
   return data;
 }
 
-async function refreshPasskeyUi() {
-  const res = await fetch("/api/auth/passkey/status");
-  const data = await res.json();
-  if (data.canRegisterWithoutLogin) {
-    passkeyHint.textContent =
-      "Nog geen passkey op deze server. Registreer eenmalig of log in met e-mail.";
-    passkeyRegisterBtn.classList.remove("hidden");
-  } else if (data.hasPasskeys) {
-    passkeyHint.textContent = "Gebruik je passkey om in te loggen.";
-    passkeyRegisterBtn.classList.add("hidden");
-  } else {
-    passkeyHint.textContent = "Log eerst in met e-mail om een passkey te registreren.";
-    passkeyRegisterBtn.classList.add("hidden");
-  }
-}
-
-document.querySelectorAll(".tab").forEach((tab) => {
-  tab.addEventListener("click", () => {
-    document.querySelectorAll(".tab").forEach((t) => t.classList.remove("active"));
-    tab.classList.add("active");
-    const name = tab.dataset.tab;
-    document.getElementById("panel-email").classList.toggle("hidden", name !== "email");
-    document.getElementById("panel-passkey").classList.toggle("hidden", name !== "passkey");
-  });
-});
-
 emailForm.addEventListener("submit", async (e) => {
   e.preventDefault();
   hideAlert();
-  const email = new FormData(emailForm).get("email");
   const res = await fetch("/api/auth/email/request", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     credentials: "include",
-    body: JSON.stringify({ email }),
+    body: JSON.stringify({}),
   });
   const data = await res.json();
   if (!res.ok) {
@@ -82,70 +51,11 @@ emailForm.addEventListener("submit", async (e) => {
   showAlert(data.message, "success");
 });
 
-async function passkeyRegister() {
-  hideAlert();
-  const optRes = await fetch("/api/auth/passkey/register/options", {
-    method: "POST",
-    credentials: "include",
-  });
-  const options = await optRes.json();
-  if (!optRes.ok) {
-    showAlert(options.error || "Registratie niet mogelijk.");
-    return;
-  }
-  const attResp = await startRegistration({ optionsJSON: options });
-  const verRes = await fetch("/api/auth/passkey/register/verify", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    credentials: "include",
-    body: JSON.stringify(attResp),
-  });
-  const verData = await verRes.json();
-  if (!verRes.ok) {
-    showAlert(verData.error || "Registratie mislukt.");
-    return;
-  }
-  showAlert("Passkey geregistreerd. Je bent ingelogd.", "success");
-  await refreshAuth();
-  await refreshPasskeyUi();
-}
-
-async function passkeyLogin() {
-  hideAlert();
-  const optRes = await fetch("/api/auth/passkey/login/options", {
-    method: "POST",
-    credentials: "include",
-  });
-  const options = await optRes.json();
-  if (!optRes.ok) {
-    showAlert(options.error || "Inloggen niet mogelijk.");
-    return;
-  }
-  const attResp = await startAuthentication({ optionsJSON: options });
-  const verRes = await fetch("/api/auth/passkey/login/verify", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    credentials: "include",
-    body: JSON.stringify(attResp),
-  });
-  const verData = await verRes.json();
-  if (!verRes.ok) {
-    showAlert(verData.error || "Inloggen mislukt.");
-    return;
-  }
-  showAlert("Ingelogd met passkey.", "success");
-  await refreshAuth();
-}
-
-passkeyRegisterBtn.addEventListener("click", passkeyRegister);
-passkeyLoginBtn.addEventListener("click", passkeyLogin);
-
 document.getElementById("logout-btn").addEventListener("click", async () => {
   await fetch("/api/auth/logout", { method: "POST", credentials: "include" });
   uploadResult.classList.add("hidden");
   hideAlert();
   await refreshAuth();
-  await refreshPasskeyUi();
 });
 
 dropzone.addEventListener("click", () => fileInput.click());
@@ -216,5 +126,18 @@ if (params.get("error") === "invalid_token") {
   history.replaceState({}, "", "/");
 }
 
-await refreshAuth();
-await refreshPasskeyUi();
+try {
+  const configRes = await fetch("/api/config");
+  if (configRes.ok) {
+    const config = await configRes.json();
+    if (config.loginEmail && loginEmailEl) {
+      loginEmailEl.textContent = config.loginEmail;
+    }
+  }
+  await refreshAuth();
+} catch (err) {
+  console.error(err);
+  authSection.classList.remove("hidden");
+  uploadSection.classList.add("hidden");
+  showAlert("Kon de pagina niet volledig laden. Vernieuw de pagina.");
+}

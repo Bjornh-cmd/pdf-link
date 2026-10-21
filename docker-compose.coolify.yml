@@ -1,0 +1,33 @@
+# Referentie voor Coolify (volume-paden + env). Coolify deployt meestal via Dockerfile;
+# koppel deze paden als Persistent Storage in de Coolify UI.
+services:
+  web:
+    build: .
+    expose:
+      - "3000"
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      UPLOAD_DIR: /data/uploads
+      DATA_DIR: /data/app
+      BASE_URL: https://pdf.bjorn-sites.nl
+      EMAIL_FROM: pdf@support.snubstad.nl
+      ALLOWED_UPLOAD_EMAIL: bjornhoutman14@gmail.com
+      MAX_FILE_SIZE_MB: 25
+      # Zet in Coolify UI (niet in git):
+      # SESSION_SECRET=
+      # RESEND_API_KEY=
+    volumes:
+      - pdf_uploads:/data/uploads
+      - app_data:/data/app
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    restart: unless-stopped
+
+volumes:
+  pdf_uploads:
+  app_data:
