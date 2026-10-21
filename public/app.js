@@ -131,7 +131,20 @@ async function passkeyRegister() {
     showAlert(options.error || "Registratie niet mogelijk.");
     return;
   }
-  const attResp = await startRegistration({ optionsJSON: options });
+  let attResp;
+  try {
+    attResp = await startRegistration({ optionsJSON: options });
+  } catch (err) {
+    const msg = String(err?.message || err);
+    if (msg.includes("RP ID") || msg.includes("relying party")) {
+      showAlert(
+        "Passkey-domein komt niet overeen met deze site. Open de app via hetzelfde adres als in Coolify (bijv. https://pdf.bjorn-sites.nl), niet via localhost.",
+      );
+    } else {
+      showAlert(msg || "Passkey-registratie geannuleerd of mislukt.");
+    }
+    return;
+  }
   const verRes = await fetch("/api/auth/passkey/register/verify", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -165,7 +178,14 @@ async function passkeyLogin() {
     showAlert(options.error || "Inloggen niet mogelijk.");
     return;
   }
-  const attResp = await startAuthentication({ optionsJSON: options });
+  let attResp;
+  try {
+    attResp = await startAuthentication({ optionsJSON: options });
+  } catch (err) {
+    const msg = String(err?.message || err);
+    showAlert(msg.includes("RP ID") ? "Passkey werkt alleen op het juiste domein (https://pdf.bjorn-sites.nl)." : msg || "Inloggen geannuleerd.");
+    return;
+  }
   const verRes = await fetch("/api/auth/passkey/login/verify", {
     method: "POST",
     headers: { "Content-Type": "application/json" },

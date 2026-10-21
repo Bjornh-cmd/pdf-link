@@ -61,19 +61,9 @@ const authConfig = {
 const allowedUploadEmail =
   process.env.ALLOWED_UPLOAD_EMAIL || "bjornhoutman14@gmail.com";
 
-function resolveRpId(baseUrl) {
-  if (process.env.RP_ID) return process.env.RP_ID;
-  try {
-    return new URL(baseUrl).hostname;
-  } catch {
-    return "localhost";
-  }
-}
-
 const passkeyConfig = {
   baseUrl: BASE_URL,
   rpName: process.env.RP_NAME || "PDF Link",
-  rpId: resolveRpId(BASE_URL),
 };
 
 app.get("/health", (_req, res) => {

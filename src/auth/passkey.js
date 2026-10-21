@@ -13,6 +13,7 @@ import {
   deleteChallenge,
 } from "./store.js";
 import { isAuthenticated } from "./session.js";
+import { resolveWebAuthnContext } from "./webauthn-context.js";
 
 const CHALLENGE_TTL_MS = 5 * 60 * 1000;
 
@@ -24,6 +25,7 @@ function toStoredCredential(credential, extra) {
     transports: extra.transports,
     deviceType: extra.deviceType,
     backedUp: extra.backedUp,
+    rpId: extra.rpId,
   };
 }
 
@@ -42,15 +44,17 @@ async function canRegisterPasskey(req) {
   return isAuthenticated(req) && req.session.user?.method === "email";
 }
 
-export function createPasskeyRouter({ rpName, rpId, baseUrl }) {
+export function createPasskeyRouter({ rpName, baseUrl }) {
   const router = express.Router();
-  const origin = baseUrl.replace(/\/$/, "");
+  const defaults = { baseUrl, rpName };
 
-  router.get("/status", async (_req, res) => {
+  router.get("/status", async (req, res) => {
     const credentials = await getCredentials();
+    const ctx = resolveWebAuthnContext(req, defaults);
     res.json({
       hasPasskeys: credentials.length > 0,
       canRegisterWithoutLogin: credentials.length === 0,
+      rpId: ctx.rpId,
     });
   });
 
@@ -61,13 +65,14 @@ export function createPasskeyRouter({ rpName, rpId, baseUrl }) {
       });
     }
 
+    const ctx = resolveWebAuthnContext(req, defaults);
     const credentials = await getCredentials();
     const userId = "admin";
     const userName = process.env.ALLOWED_UPLOAD_EMAIL || "admin@local";
 
     const options = await generateRegistrationOptions({
-      rpName,
-      rpID: rpId,
+      rpName: ctx.rpName,
+      rpID: ctx.rpId,
       userName,
       userID: new TextEncoder().encode(userId),
       attestationType: "none",
@@ -84,6 +89,8 @@ export function createPasskeyRouter({ rpName, rpId, baseUrl }) {
     await setChallenge(`reg:${userId}`, {
       challenge: options.challenge,
       expiresAt: Date.now() + CHALLENGE_TTL_MS,
+      rpId: ctx.rpId,
+      origin: ctx.origin,
     });
 
     res.json(options);
@@ -106,8 +113,8 @@ export function createPasskeyRouter({ rpName, rpId, baseUrl }) {
       verification = await verifyRegistrationResponse({
         response: req.body,
         expectedChallenge: stored.challenge,
-        expectedOrigin: origin,
-        expectedRPID: rpId,
+        expectedOrigin: stored.origin,
+        expectedRPID: stored.rpId,
         requireUserVerification: false,
       });
     } catch (err) {
@@ -127,6 +134,7 @@ export function createPasskeyRouter({ rpName, rpId, baseUrl }) {
         transports: req.body.response?.transports,
         deviceType: credentialDeviceType,
         backedUp: credentialBackedUp,
+        rpId: stored.rpId,
       }),
     );
 
@@ -136,14 +144,17 @@ export function createPasskeyRouter({ rpName, rpId, baseUrl }) {
     res.json({ verified: true, message: "Passkey geconfigureerd." });
   });
 
-  router.post("/login/options", async (_req, res) => {
+  router.post("/login/options", async (req, res) => {
+    const ctx = resolveWebAuthnContext(req, defaults);
     const credentials = await getCredentials();
     if (credentials.length === 0) {
-      return res.status(400).json({ error: "Nog geen passkey. Log in met e-mail om er een te instellen." });
+      return res.status(400).json({
+        error: "Nog geen passkey. Log in met e-mail om er een te instellen.",
+      });
     }
 
     const options = await generateAuthenticationOptions({
-      rpID: rpId,
+      rpID: ctx.rpId,
       allowCredentials: credentials.map((c) => ({
         id: c.id,
         transports: c.transports,
@@ -154,6 +165,8 @@ export function createPasskeyRouter({ rpName, rpId, baseUrl }) {
     await setChallenge("auth", {
       challenge: options.challenge,
       expiresAt: Date.now() + CHALLENGE_TTL_MS,
+      rpId: ctx.rpId,
+      origin: ctx.origin,
     });
 
     res.json(options);
@@ -178,8 +191,8 @@ export function createPasskeyRouter({ rpName, rpId, baseUrl }) {
       verification = await verifyAuthenticationResponse({
         response: req.body,
         expectedChallenge: stored.challenge,
-        expectedOrigin: origin,
-        expectedRPID: rpId,
+        expectedOrigin: stored.origin,
+        expectedRPID: stored.rpId,
         credential: dbCred,
         requireUserVerification: false,
       });

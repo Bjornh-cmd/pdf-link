@@ -63,6 +63,8 @@ In Coolify: **Environment Variables** (productie). Geen secrets in git.
 
 **Belangrijk:** `BASE_URL` moet exact `https://pdf.bjorn-sites.nl` zijn (geen trailing slash). Anders kloppen inloglinks in de mail niet.
 
+**Passkey:** `RP_ID` is optioneel — standaard gebruikt de server het domein uit je browser (`Host` / `X-Forwarded-Host`). Zet `BASE_URL` op hetzelfde domein. Open de site niet via `localhost` als je op productie deployt. Lokaal: gebruik `http://localhost:3000`, niet `127.0.0.1`.
+
 ## 5. Persistent storage (volumes)
 
 Zonder volumes verdwijnen PDF’s en inlogtokens bij elke redeploy.
