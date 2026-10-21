@@ -25,10 +25,84 @@ function hideAlert() {
   alertEl.classList.add("hidden");
 }
 
+const pdfLibraryEl = document.getElementById("pdf-library");
+const libraryEmptyEl = document.getElementById("library-empty");
+
 function setAuthenticated(authenticated) {
   authSection.classList.toggle("hidden", authenticated);
   uploadSection.classList.toggle("hidden", !authenticated);
+  if (authenticated) {
+    loadPdfLibrary();
+  }
 }
+
+function formatDate(iso) {
+  try {
+    return new Date(iso).toLocaleString("nl-NL", {
+      dateStyle: "medium",
+      timeStyle: "short",
+    });
+  } catch {
+    return iso;
+  }
+}
+
+function formatSize(bytes) {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+async function copyText(text) {
+  await navigator.clipboard.writeText(text);
+  showAlert("Link gekopieerd.", "success");
+}
+
+async function loadPdfLibrary() {
+  if (!pdfLibraryEl) return;
+  const res = await fetch("/api/pdfs", { credentials: "include" });
+  const data = await res.json();
+  if (!res.ok) {
+    showAlert(data.error || "Kon PDF-lijst niet laden.");
+    return;
+  }
+
+  pdfLibraryEl.innerHTML = "";
+  const pdfs = data.pdfs || [];
+  libraryEmptyEl.classList.toggle("hidden", pdfs.length > 0);
+
+  for (const pdf of pdfs) {
+    const li = document.createElement("li");
+    li.innerHTML = `
+      <div class="pdf-item-main">
+        <p class="pdf-item-name"></p>
+        <p class="pdf-item-meta"></p>
+      </div>
+      <div class="pdf-item-actions">
+        <a class="btn btn-ghost" href="" target="_blank" rel="noopener">Openen</a>
+        <button type="button" class="btn btn-ghost" data-copy-view>Kopieer bekijken</button>
+        <button type="button" class="btn btn-primary" data-copy-download>Kopieer download</button>
+      </div>
+    `;
+    li.querySelector(".pdf-item-name").textContent = pdf.originalName;
+    li.querySelector(".pdf-item-meta").textContent = `${formatDate(pdf.uploadedAt)} · ${formatSize(pdf.sizeBytes)}`;
+    li.querySelector("a").href = pdf.viewUrl;
+    li.querySelector("[data-copy-view]").addEventListener("click", () => copyText(pdf.viewUrl));
+    li.querySelector("[data-copy-download]").addEventListener("click", () => copyText(pdf.downloadUrl));
+    pdfLibraryEl.appendChild(li);
+  }
+}
+
+document.querySelectorAll("[data-workspace]").forEach((tab) => {
+  tab.addEventListener("click", () => {
+    document.querySelectorAll("[data-workspace]").forEach((t) => t.classList.remove("active"));
+    tab.classList.add("active");
+    const name = tab.dataset.workspace;
+    document.getElementById("workspace-upload").classList.toggle("hidden", name !== "upload");
+    document.getElementById("workspace-library").classList.toggle("hidden", name !== "library");
+    if (name === "library") loadPdfLibrary();
+  });
+});
 
 async function loadWebAuthn() {
   return import("/vendor/simplewebauthn/index.js");
@@ -276,6 +350,7 @@ async function uploadFile(file) {
   downloadUrlInput.value = data.downloadUrl;
   uploadResult.classList.remove("hidden");
   showAlert("PDF geüpload. Deel de links hieronder.", "success");
+  await loadPdfLibrary();
 }
 
 document.querySelectorAll("[data-copy]").forEach((btn) => {

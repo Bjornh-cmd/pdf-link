@@ -55,12 +55,18 @@
         <section id="upload-section" class="surface hidden">
           <div class="surface-head upload-head">
             <div>
-              <h2>Upload</h2>
-              <p class="surface-desc">Alleen PDF, max. 25&nbsp;MB.</p>
+              <h2>Beheer</h2>
+              <p class="surface-desc">Upload en beheer je PDF&apos;s.</p>
             </div>
             <button type="button" id="logout-btn" class="btn btn-text">Uitloggen</button>
           </div>
 
+          <div class="tabs workspace-tabs" role="tablist">
+            <button type="button" class="tab active" data-workspace="upload" role="tab">Upload</button>
+            <button type="button" class="tab" data-workspace="library" role="tab">PDF&apos;s</button>
+          </div>
+
+          <div id="workspace-upload" class="workspace-panel">
           <section id="passkey-settings" class="passkey-settings hidden">
             <h3>Passkey</h3>
             <p id="passkey-settings-desc" class="surface-desc"></p>
@@ -93,6 +99,13 @@
                 <button type="button" class="btn btn-primary" data-copy="download-url">Kopiëren</button>
               </div>
             </div>
+          </div>
+          </div>
+
+          <div id="workspace-library" class="workspace-panel hidden">
+            <p class="surface-desc">Alle geüploade PDF&apos;s op deze server.</p>
+            <p id="library-empty" class="fine-print hidden">Nog geen PDF&apos;s geüpload.</p>
+            <ul id="pdf-library" class="pdf-library"></ul>
           </div>
         </section>
 

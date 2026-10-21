@@ -16,6 +16,7 @@ import {
   metaPath,
   pdfPath,
   readMeta,
+  listUploadedPdfs,
 } from "./pdf.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -107,6 +108,23 @@ app.use(
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: MAX_FILE_SIZE_MB * 1024 * 1024 },
+});
+
+app.get("/api/pdfs", requireAuth, async (_req, res) => {
+  try {
+    const base = BASE_URL.replace(/\/$/, "");
+    const items = await listUploadedPdfs(UPLOAD_DIR);
+    res.json({
+      pdfs: items.map((item) => ({
+        ...item,
+        viewUrl: `${base}/p/${item.id}`,
+        downloadUrl: `${base}/d/${item.id}`,
+      })),
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Kon PDF-lijst niet laden." });
+  }
 });
 
 app.post("/api/upload", requireAuth, upload.single("file"), async (req, res) => {

@@ -48,3 +48,34 @@ export async function readMeta(uploadDir, id) {
     return { originalName: "document.pdf" };
   }
 }
+
+export async function listUploadedPdfs(uploadDir) {
+  let files;
+  try {
+    files = await fs.readdir(uploadDir);
+  } catch (err) {
+    if (err.code === "ENOENT") return [];
+    throw err;
+  }
+
+  const items = [];
+  for (const file of files) {
+    if (!file.endsWith(".pdf")) continue;
+    const id = file.slice(0, -4);
+    if (!isValidPdfId(id)) continue;
+
+    const filePath = pdfPath(uploadDir, id);
+    const stat = await fs.stat(filePath);
+    const meta = await readMeta(uploadDir, id);
+
+    items.push({
+      id,
+      originalName: meta.originalName || "document.pdf",
+      uploadedAt: meta.uploadedAt || stat.mtime.toISOString(),
+      sizeBytes: stat.size,
+    });
+  }
+
+  items.sort((a, b) => new Date(b.uploadedAt) - new Date(a.uploadedAt));
+  return items;
+}
