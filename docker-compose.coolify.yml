@@ -9,7 +9,7 @@ services:
       NODE_ENV: production
       PORT: 3000
       UPLOAD_DIR: /data/uploads
-      DATA_DIR: /data/app
+      DATA_DIR: /data/uploads/.app
       BASE_URL: https://pdf.bjorn-sites.nl
       EMAIL_FROM: pdf@support.snubstad.nl
       ALLOWED_UPLOAD_EMAIL: bjornhoutman14@gmail.com
@@ -19,7 +19,6 @@ services:
       # RESEND_API_KEY=
     volumes:
       - pdf_uploads:/data/uploads
-      - app_data:/data/app
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:3000/health"]
       interval: 30s
@@ -30,4 +29,3 @@ services:
 
 volumes:
   pdf_uploads:
-  app_data:

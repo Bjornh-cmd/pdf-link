@@ -10,7 +10,7 @@ Deze app draait als Docker-container (Node 20). Coolify bouwt de image uit de [D
 | Containerpoort | `3000` |
 | Health check | `GET /health` → `{"ok":true}` |
 | PDF-opslag | `/data/uploads` (volume) |
-| Tokens / sessiedata | `/data/app` (volume) |
+| Tokens / passkeys | `/data/uploads/.app` (in upload-volume) |
 
 ## 1. DNS
 
@@ -55,7 +55,7 @@ In Coolify: **Environment Variables** (productie). Geen secrets in git.
 | `EMAIL_FROM` | `pdf@support.snubstad.nl` | Ja (domein verified in Resend) |
 | `ALLOWED_UPLOAD_EMAIL` | `bjornhoutman14@gmail.com` | Ja |
 | `UPLOAD_DIR` | `/data/uploads` | Ja |
-| `DATA_DIR` | `/data/app` | Ja |
+| `DATA_DIR` | `/data/uploads/.app` | Ja (passkeys + tokens; zit in upload-volume) |
 | `MAX_FILE_SIZE_MB` | `25` | Nee |
 | `COOKIE_SECURE` | `true` | Optioneel (auto bij `https://` in `BASE_URL`) |
 | `RP_ID` | `pdf.bjorn-sites.nl` | Passkey (default = hostname uit `BASE_URL`) |
@@ -73,10 +73,11 @@ In Coolify → **Storages** / **Persistent Storage** (namen kunnen per versie ve
 
 | Mount path in container | Doel |
 |-------------------------|------|
-| `/data/uploads` | Geüploade PDF’s |
-| `/data/app` | E-mail tokens (`email-tokens.json`) |
+| `/data/uploads` | PDF’s + map `.app` (passkeys, e-mailtokens) |
 
-Beide als **persistent volume** koppelen aan de application service.
+Eén **persistent volume** op `/data/uploads` is genoeg. Zet `DATA_DIR=/data/uploads/.app`.
+
+Bij upgrade van een oude setup met apart volume `/data/app`: de app migreert `credentials.json` automatisch naar `/data/uploads/.app` bij start.
 
 ## 6. Health check (optioneel in UI)
 
@@ -118,7 +119,7 @@ Optioneel bestand [docker-compose.coolify.yml](../docker-compose.coolify.yml) is
 | Mail komt niet aan | Resend-domain verified? Logs: `Resend API error` |
 | Inloglink opent localhost | `BASE_URL` → `https://pdf.bjorn-sites.nl` |
 | Inlog werkt niet na klik | `BASE_URL` moet HTTPS zijn; cookies: `COOKIE_SECURE=true` als nodig |
-| PDF’s weg na deploy | Volumes op `/data/uploads` en `/data/app` |
+| PDF’s of passkey weg na deploy | Persistent volume op `/data/uploads` + `DATA_DIR=/data/uploads/.app` |
 | 502 Bad Gateway | App draait? Poort **3000** in Coolify? Logs van container |
 
 ## 11. Checklist productie
@@ -129,6 +130,6 @@ Optioneel bestand [docker-compose.coolify.yml](../docker-compose.coolify.yml) is
 - [ ] `SESSION_SECRET` uniek en sterk
 - [ ] `RESEND_API_KEY` gezet
 - [ ] Resend-domein `support.snubstad.nl` verified
-- [ ] Volumes `/data/uploads` + `/data/app`
+- [ ] Volume `/data/uploads` (persistent)
 - [ ] Health `/health` groen
 - [ ] Test: e-mail inlog + upload + publieke PDF-link

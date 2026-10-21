@@ -8,6 +8,7 @@ import session from "express-session";
 import multer from "multer";
 import { createEmailRouter } from "./auth/email.js";
 import { createPasskeyRouter } from "./auth/passkey.js";
+import { migrateLegacyDataDir } from "./auth/store.js";
 import { isAuthenticated, requireAuth } from "./auth/session.js";
 import {
   fileExists,
@@ -32,6 +33,7 @@ const cookieSecure =
   (process.env.COOKIE_SECURE !== "false" && BASE_URL.startsWith("https://"));
 
 await fs.mkdir(UPLOAD_DIR, { recursive: true });
+await migrateLegacyDataDir();
 
 const app = express();
 app.set("trust proxy", 1);

@@ -53,6 +53,7 @@ export function createPasskeyRouter({ rpName, baseUrl }) {
     const ctx = resolveWebAuthnContext(req, defaults);
     res.json({
       hasPasskeys: credentials.length > 0,
+      passkeyCount: credentials.length,
       canRegisterWithoutLogin: credentials.length === 0,
       rpId: ctx.rpId,
     });

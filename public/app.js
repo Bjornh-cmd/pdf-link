@@ -147,7 +147,7 @@ async function updatePasskeyPanels(authData) {
       passkeyLoginBtn.classList.remove("hidden");
     } else {
       passkeyLoginHint.textContent =
-        "Nog geen passkey. Log eerst in met e-mail en configureer een passkey onder Upload.";
+        "Geen passkey op deze server. Log in met e-mail en kies Upload → Passkey configureren. Na een deploy zonder persistent volume moet je de passkey opnieuw instellen.";
       passkeyLoginBtn.classList.add("hidden");
     }
     return;
@@ -171,13 +171,21 @@ async function updatePasskeyPanels(authData) {
   }
 }
 
-document.querySelectorAll(".tab").forEach((tab) => {
-  tab.addEventListener("click", () => {
-    document.querySelectorAll(".tab").forEach((t) => t.classList.remove("active"));
+document.querySelectorAll(".tab[data-tab]").forEach((tab) => {
+  tab.addEventListener("click", async () => {
+    document.querySelectorAll(".tab[data-tab]").forEach((t) => t.classList.remove("active"));
     tab.classList.add("active");
     const name = tab.dataset.tab;
     document.getElementById("panel-email").classList.toggle("hidden", name !== "email");
     document.getElementById("panel-passkey").classList.toggle("hidden", name !== "passkey");
+    if (name === "passkey") {
+      const authRes = await fetch("/api/auth/status", { credentials: "include" });
+      const auth = await authRes.json();
+      await updatePasskeyPanels({
+        authenticated: auth.authenticated,
+        user: auth.user,
+      });
+    }
   });
 });
 

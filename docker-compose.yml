@@ -8,7 +8,7 @@ services:
         required: false
     environment:
       UPLOAD_DIR: /data/uploads
-      DATA_DIR: /data/app
+      DATA_DIR: /data/uploads/.app
       NODE_ENV: production
       SESSION_SECRET: ${SESSION_SECRET:-change-me-in-production}
       BASE_URL: ${BASE_URL:-http://localhost:3000}
@@ -17,7 +17,6 @@ services:
       MAX_FILE_SIZE_MB: ${MAX_FILE_SIZE_MB:-25}
     volumes:
       - pdf_uploads:/data/uploads
-      - app_data:/data/app
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:3000/health"]
@@ -28,4 +27,3 @@ services:
 
 volumes:
   pdf_uploads:
-  app_data:
