@@ -79,6 +79,21 @@ Eén **persistent volume** op `/data/uploads` is genoeg. Zet `DATA_DIR=/data/upl
 
 Bij upgrade van een oude setup met apart volume `/data/app`: de app migreert `credentials.json` automatisch naar `/data/uploads/.app` bij start.
 
+**Verwijder** in Coolify de oude env `DATA_DIR=/data/app` als die nog staat. Gebruik alleen `/data/uploads/.app` (of laat `DATA_DIR` weg — de app kiest dan automatisch `/data/uploads/.app`).
+
+### Redeploy: PDF’s en passkey behouden
+
+1. **Persistent storage** op `/data/uploads` (niet alleen “ephemeral” container storage).
+2. **Geen** `DATA_DIR=/data/app` in environment.
+3. Na redeploy: open `https://pdf.bjorn-sites.nl/health` — verwacht:
+   ```json
+   { "ok": true, "storage": { "ready": true, "pdfCount": 1, "passkeyCount": 1 } }
+   ```
+   (`pdfCount` / `passkeyCount` ≥ wat je had vóór de deploy.)
+4. Tab **PDF’s** en **Passkey** in de app controleren.
+
+Een nieuwe deploy vervangt alleen de **container image**; het **volume** blijft op de server staan.
+
 ## 6. Health check (optioneel in UI)
 
 Als Coolify een custom health check toont:

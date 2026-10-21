@@ -8,8 +8,8 @@ import session from "express-session";
 import multer from "multer";
 import { createEmailRouter } from "./auth/email.js";
 import { createPasskeyRouter } from "./auth/passkey.js";
-import { migrateLegacyDataDir } from "./auth/store.js";
 import { isAuthenticated, requireAuth } from "./auth/session.js";
+import { initPersistentStorage, getStorageStats } from "./storage.js";
 import {
   fileExists,
   isPdfBuffer,
@@ -32,8 +32,7 @@ const cookieSecure =
   process.env.COOKIE_SECURE === "true" ||
   (process.env.COOKIE_SECURE !== "false" && BASE_URL.startsWith("https://"));
 
-await fs.mkdir(UPLOAD_DIR, { recursive: true });
-await migrateLegacyDataDir();
+const storageState = await initPersistentStorage(UPLOAD_DIR);
 
 const app = express();
 app.set("trust proxy", 1);
@@ -69,8 +68,21 @@ const passkeyConfig = {
   rpName: process.env.RP_NAME || "PDF Link",
 };
 
-app.get("/health", (_req, res) => {
-  res.json({ ok: true });
+app.get("/health", async (_req, res) => {
+  try {
+    const stats = await getStorageStats(UPLOAD_DIR);
+    res.json({
+      ok: true,
+      storage: {
+        ready: true,
+        pdfCount: stats.pdfCount,
+        passkeyCount: stats.passkeyCount,
+      },
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(503).json({ ok: false, error: "storage_unavailable" });
+  }
 });
 
 app.get("/api/config", (_req, res) => {
