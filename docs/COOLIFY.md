@@ -58,6 +58,8 @@ In Coolify: **Environment Variables** (productie). Geen secrets in git.
 | `DATA_DIR` | `/data/app` | Ja |
 | `MAX_FILE_SIZE_MB` | `25` | Nee |
 | `COOKIE_SECURE` | `true` | Optioneel (auto bij `https://` in `BASE_URL`) |
+| `RP_ID` | `pdf.bjorn-sites.nl` | Passkey (default = hostname uit `BASE_URL`) |
+| `RP_NAME` | `PDF Link` | Passkey-weergavenaam |
 
 **Belangrijk:** `BASE_URL` moet exact `https://pdf.bjorn-sites.nl` zijn (geen trailing slash). Anders kloppen inloglinks in de mail niet.
 

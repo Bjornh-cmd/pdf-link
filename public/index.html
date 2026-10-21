@@ -32,15 +32,24 @@
         <section id="auth-section" class="surface">
           <div class="surface-head">
             <h2>Toegang</h2>
-            <p class="surface-desc">
-              Inloglink wordt verstuurd naar
-              <strong id="login-email">bjornhoutman14@gmail.com</strong>.
-            </p>
           </div>
-          <form id="email-form" class="stack">
-            <button type="submit" class="btn btn-primary">Stuur inloglink</button>
-          </form>
-          <p class="fine-print">Eenmalige link, 15 minuten geldig.</p>
+          <div class="tabs" role="tablist">
+            <button type="button" class="tab active" data-tab="email" role="tab">E-mail</button>
+            <button type="button" class="tab" data-tab="passkey" role="tab">Passkey</button>
+          </div>
+          <div id="panel-email" class="panel">
+            <p class="surface-desc">
+              Inloglink naar <strong id="login-email">bjornhoutman14@gmail.com</strong>.
+            </p>
+            <form id="email-form" class="stack">
+              <button type="submit" class="btn btn-primary">Stuur inloglink</button>
+            </form>
+            <p class="fine-print">Eenmalige link, 15 minuten geldig. Configureer daarna een passkey.</p>
+          </div>
+          <div id="panel-passkey" class="panel hidden">
+            <p id="passkey-login-hint" class="surface-desc"></p>
+            <button type="button" id="passkey-login-btn" class="btn btn-primary">Inloggen met passkey</button>
+          </div>
         </section>
 
         <section id="upload-section" class="surface hidden">
@@ -51,6 +60,15 @@
             </div>
             <button type="button" id="logout-btn" class="btn btn-text">Uitloggen</button>
           </div>
+
+          <section id="passkey-settings" class="passkey-settings hidden">
+            <h3>Passkey</h3>
+            <p id="passkey-settings-desc" class="surface-desc"></p>
+            <button type="button" id="passkey-register-btn" class="btn btn-secondary hidden">
+              Passkey configureren
+            </button>
+            <p id="passkey-settings-status" class="fine-print"></p>
+          </section>
 
           <div id="dropzone" class="dropzone" tabindex="0" role="button" aria-label="PDF selecteren">
             <span class="dropzone-label">Sleep een PDF hierheen</span>

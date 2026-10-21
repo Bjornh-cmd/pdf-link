@@ -1,0 +1,17 @@
+---
+description: Push completed work to GitHub origin/main after code changes
+alwaysApply: true
+---
+
+# GitHub sync
+
+After finishing a task that changes the repository (features, fixes, config, docs):
+
+1. Do **not** commit `.env` or other secrets.
+2. `git status` — ensure only intended files are staged.
+3. Commit with a clear message describing why.
+4. `git push origin main` (or the current branch).
+
+If the user asks for work in this repo, include the push unless they explicitly say not to or there is nothing to commit.
+
+Remote: `https://github.com/Bjornh-cmd/pdf-link`
