@@ -71,7 +71,10 @@ app.get("/health", (_req, res) => {
 });
 
 app.get("/api/config", (_req, res) => {
-  res.json({ loginEmail: allowedUploadEmail });
+  res.json({
+    loginEmail: allowedUploadEmail,
+    baseUrl: BASE_URL.replace(/\/$/, ""),
+  });
 });
 
 app.get("/api/auth/status", (req, res) => {

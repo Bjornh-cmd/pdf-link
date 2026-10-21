@@ -34,6 +34,17 @@ async function loadWebAuthn() {
   return import("/vendor/simplewebauthn/index.js");
 }
 
+function passkeyRequestBody() {
+  return JSON.stringify({ clientOrigin: window.location.origin });
+}
+
+function assertRpIdMatchesPage(options) {
+  const rpId = options?.rp?.id;
+  if (!rpId) return null;
+  if (rpId === window.location.hostname) return null;
+  return `Passkey-domein mismatch: server "${rpId}", browser "${window.location.hostname}". Zet BASE_URL in Coolify op ${window.location.origin}.`;
+}
+
 async function refreshAuth() {
   const res = await fetch("/api/auth/status", { credentials: "include" });
   const data = await res.json();
@@ -124,25 +135,25 @@ async function passkeyRegister() {
   }
   const optRes = await fetch("/api/auth/passkey/register/options", {
     method: "POST",
+    headers: { "Content-Type": "application/json" },
     credentials: "include",
+    body: passkeyRequestBody(),
   });
   const options = await optRes.json();
   if (!optRes.ok) {
     showAlert(options.error || "Registratie niet mogelijk.");
     return;
   }
+  const rpMismatch = assertRpIdMatchesPage(options);
+  if (rpMismatch) {
+    showAlert(rpMismatch);
+    return;
+  }
   let attResp;
   try {
     attResp = await startRegistration({ optionsJSON: options });
   } catch (err) {
-    const msg = String(err?.message || err);
-    if (msg.includes("RP ID") || msg.includes("relying party")) {
-      showAlert(
-        "Passkey-domein komt niet overeen met deze site. Open de app via hetzelfde adres als in Coolify (bijv. https://pdf.bjorn-sites.nl), niet via localhost.",
-      );
-    } else {
-      showAlert(msg || "Passkey-registratie geannuleerd of mislukt.");
-    }
+    showAlert(String(err?.message || err) || "Passkey-registratie geannuleerd of mislukt.");
     return;
   }
   const verRes = await fetch("/api/auth/passkey/register/verify", {
@@ -171,19 +182,25 @@ async function passkeyLogin() {
   }
   const optRes = await fetch("/api/auth/passkey/login/options", {
     method: "POST",
+    headers: { "Content-Type": "application/json" },
     credentials: "include",
+    body: passkeyRequestBody(),
   });
   const options = await optRes.json();
   if (!optRes.ok) {
     showAlert(options.error || "Inloggen niet mogelijk.");
     return;
   }
+  const rpMismatch = assertRpIdMatchesPage(options);
+  if (rpMismatch) {
+    showAlert(rpMismatch);
+    return;
+  }
   let attResp;
   try {
     attResp = await startAuthentication({ optionsJSON: options });
   } catch (err) {
-    const msg = String(err?.message || err);
-    showAlert(msg.includes("RP ID") ? "Passkey werkt alleen op het juiste domein (https://pdf.bjorn-sites.nl)." : msg || "Inloggen geannuleerd.");
+    showAlert(String(err?.message || err) || "Inloggen geannuleerd.");
     return;
   }
   const verRes = await fetch("/api/auth/passkey/login/verify", {
