@@ -1,0 +1,167 @@
+import crypto from "node:crypto";
+import fs from "node:fs/promises";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import express from "express";
+import session from "express-session";
+import multer from "multer";
+import { createEmailRouter } from "./auth/email.js";
+import { createPasskeyRouter } from "./auth/passkey.js";
+import { isAuthenticated, requireAuth } from "./auth/session.js";
+import {
+  fileExists,
+  isPdfBuffer,
+  isValidPdfId,
+  metaPath,
+  pdfPath,
+  readMeta,
+} from "./pdf.js";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const rootDir = path.join(__dirname, "..");
+
+const PORT = Number(process.env.PORT) || 3000;
+const BASE_URL = process.env.BASE_URL || `http://localhost:${PORT}`;
+const UPLOAD_DIR = process.env.UPLOAD_DIR || path.join(rootDir, "data", "uploads");
+const MAX_FILE_SIZE_MB = Number(process.env.MAX_FILE_SIZE_MB) || 25;
+const SESSION_SECRET = process.env.SESSION_SECRET || "dev-only-change-me";
+const isProduction = process.env.NODE_ENV === "production";
+
+await fs.mkdir(UPLOAD_DIR, { recursive: true });
+
+const app = express();
+app.set("trust proxy", 1);
+
+app.use(express.json());
+app.use(
+  session({
+    name: "pdf_link_sid",
+    secret: SESSION_SECRET,
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+      httpOnly: true,
+      sameSite: "lax",
+      secure: isProduction,
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+    },
+  }),
+);
+
+const authConfig = {
+  baseUrl: BASE_URL,
+  allowedEmail: process.env.ALLOWED_UPLOAD_EMAIL || "bjornhoutman14@gmail.com",
+  emailFrom: process.env.EMAIL_FROM || "pdf@support.snubstad.nl",
+  resendApiKey: process.env.RESEND_API_KEY || "",
+  rpName: process.env.RP_NAME || "PDF Link",
+  rpId: process.env.RP_ID || "localhost",
+};
+
+app.get("/health", (_req, res) => {
+  res.json({ ok: true });
+});
+
+app.get("/api/auth/status", (req, res) => {
+  res.json({
+    authenticated: isAuthenticated(req),
+    user: req.session?.user
+      ? { method: req.session.user.method, email: req.session.user.email }
+      : null,
+  });
+});
+
+app.post("/api/auth/logout", (req, res) => {
+  req.session.destroy((err) => {
+    if (err) return res.status(500).json({ error: "Uitloggen mislukt." });
+    res.clearCookie("pdf_link_sid");
+    res.json({ ok: true });
+  });
+});
+
+app.use("/api/auth/email", createEmailRouter(authConfig));
+app.use("/api/auth/passkey", createPasskeyRouter(authConfig));
+
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: MAX_FILE_SIZE_MB * 1024 * 1024 },
+});
+
+app.post("/api/upload", requireAuth, upload.single("file"), async (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({ error: "Geen bestand geüpload." });
+  }
+
+  const mime = req.file.mimetype;
+  if (mime !== "application/pdf" && mime !== "application/x-pdf") {
+    return res.status(400).json({ error: "Alleen PDF-bestanden zijn toegestaan." });
+  }
+
+  if (!isPdfBuffer(req.file.buffer)) {
+    return res.status(400).json({ error: "Ongeldig PDF-bestand." });
+  }
+
+  const id = crypto.randomUUID();
+  const originalName = req.file.originalname || "document.pdf";
+  const safeName = path.basename(originalName).replace(/[^\w.\- ()[\]]+/g, "_") || "document.pdf";
+
+  try {
+    await fs.writeFile(pdfPath(UPLOAD_DIR, id), req.file.buffer);
+    await fs.writeFile(
+      metaPath(UPLOAD_DIR, id),
+      JSON.stringify({ originalName: safeName, uploadedAt: new Date().toISOString() }),
+      "utf8",
+    );
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: "Opslaan mislukt." });
+  }
+
+  const base = BASE_URL.replace(/\/$/, "");
+  res.json({
+    id,
+    viewUrl: `${base}/p/${id}`,
+    downloadUrl: `${base}/d/${id}`,
+  });
+});
+
+app.get("/p/:id", async (req, res) => {
+  const id = req.params.id;
+  if (!isValidPdfId(id)) {
+    return res.status(404).send("Niet gevonden");
+  }
+  const filePath = pdfPath(UPLOAD_DIR, id);
+  if (!(await fileExists(filePath))) {
+    return res.status(404).send("Niet gevonden");
+  }
+  res.setHeader("Content-Type", "application/pdf");
+  res.setHeader("Content-Disposition", "inline");
+  res.sendFile(filePath);
+});
+
+app.get("/d/:id", async (req, res) => {
+  const id = req.params.id;
+  if (!isValidPdfId(id)) {
+    return res.status(404).send("Niet gevonden");
+  }
+  const filePath = pdfPath(UPLOAD_DIR, id);
+  if (!(await fileExists(filePath))) {
+    return res.status(404).send("Niet gevonden");
+  }
+  const meta = await readMeta(UPLOAD_DIR, id);
+  res.setHeader("Content-Type", "application/pdf");
+  res.setHeader("Content-Disposition", `attachment; filename="${meta.originalName}"`);
+  res.sendFile(filePath);
+});
+
+app.use(express.static(path.join(rootDir, "public")));
+
+app.use((err, _req, res, next) => {
+  if (err instanceof multer.MulterError && err.code === "LIMIT_FILE_SIZE") {
+    return res.status(413).json({ error: `Bestand te groot (max ${MAX_FILE_SIZE_MB} MB).` });
+  }
+  next(err);
+});
+
+app.listen(PORT, () => {
+  console.log(`PDF Link listening on ${PORT}`);
+});

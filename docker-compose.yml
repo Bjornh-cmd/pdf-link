@@ -1,0 +1,24 @@
+services:
+  web:
+    build: .
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env
+    environment:
+      UPLOAD_DIR: /data/uploads
+      DATA_DIR: /data/app
+      NODE_ENV: production
+    volumes:
+      - pdf_uploads:/data/uploads
+      - app_data:/data/app
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+volumes:
+  pdf_uploads:
+  app_data:

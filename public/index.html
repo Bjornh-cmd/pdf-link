@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="nl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PDF Link</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main class="container">
+      <header>
+        <h1>PDF Link</h1>
+        <p class="subtitle">Upload een PDF en deel een link om te bekijken of te downloaden.</p>
+      </header>
+
+      <div id="alert" class="alert hidden" role="alert"></div>
+
+      <section id="auth-section" class="card hidden">
+        <h2>Inloggen om te uploaden</h2>
+        <div class="tabs">
+          <button type="button" class="tab active" data-tab="email">E-mail</button>
+          <button type="button" class="tab" data-tab="passkey">Passkey</button>
+        </div>
+
+        <div id="panel-email" class="panel">
+          <form id="email-form">
+            <label for="email">E-mailadres</label>
+            <input id="email" name="email" type="email" autocomplete="email" required />
+            <button type="submit">Stuur inloglink</button>
+          </form>
+          <p class="hint">Je ontvangt een eenmalige link per e-mail.</p>
+        </div>
+
+        <div id="panel-passkey" class="panel hidden">
+          <p id="passkey-hint" class="hint"></p>
+          <button type="button" id="passkey-register-btn" class="secondary hidden">
+            Passkey registreren
+          </button>
+          <button type="button" id="passkey-login-btn">Inloggen met passkey</button>
+        </div>
+      </section>
+
+      <section id="upload-section" class="card hidden">
+        <div class="upload-header">
+          <h2>PDF uploaden</h2>
+          <button type="button" id="logout-btn" class="link-btn">Uitloggen</button>
+        </div>
+        <div id="dropzone" class="dropzone" tabindex="0">
+          <p>Sleep een PDF hierheen of klik om te kiezen</p>
+          <input id="file-input" type="file" accept="application/pdf,.pdf" hidden />
+        </div>
+        <div id="upload-result" class="result hidden">
+          <p class="success">Upload gelukt!</p>
+          <div class="link-row">
+            <label>Bekijken</label>
+            <input id="view-url" type="text" readonly />
+            <button type="button" data-copy="view-url">Kopiëren</button>
+          </div>
+          <div class="link-row">
+            <label>Download</label>
+            <input id="download-url" type="text" readonly />
+            <button type="button" data-copy="download-url">Kopiëren</button>
+          </div>
+        </div>
+      </section>
+    </main>
+    <script type="module" src="/app.js"></script>
+  </body>
+</html>
