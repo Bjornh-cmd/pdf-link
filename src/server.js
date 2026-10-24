@@ -11,14 +11,16 @@ import { createPasskeyRouter } from "./auth/passkey.js";
 import { isAuthenticated, requireAuth } from "./auth/session.js";
 import { initPersistentStorage, getStorageStats } from "./storage.js";
 import {
-  fileExists,
-  isPdfBuffer,
-  isValidPdfId,
-  metaPath,
-  pdfPath,
+  buildFileUrls,
+  canViewInline,
+  isValidFileId,
+  listUploadedFiles,
   readMeta,
-  listUploadedPdfs,
-} from "./pdf.js";
+  resolveStoredPath,
+  validateUpload,
+  writeStoredFile,
+  getAllowedExtensions,
+} from "./files.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const rootDir = path.join(__dirname, "..");
@@ -75,7 +77,8 @@ app.get("/health", async (_req, res) => {
       ok: true,
       storage: {
         ready: true,
-        pdfCount: stats.pdfCount,
+        fileCount: stats.fileCount,
+        pdfCount: stats.fileCount,
         passkeyCount: stats.passkeyCount,
       },
     });
@@ -89,6 +92,7 @@ app.get("/api/config", (_req, res) => {
   res.json({
     loginEmail: allowedUploadEmail,
     baseUrl: BASE_URL.replace(/\/$/, ""),
+    allowedExtensions: [...getAllowedExtensions()].sort(),
   });
 });
 
@@ -124,86 +128,96 @@ const upload = multer({
   limits: { fileSize: MAX_FILE_SIZE_MB * 1024 * 1024 },
 });
 
-app.get("/api/pdfs", requireAuth, async (_req, res) => {
+async function listFilesHandler(_req, res) {
   try {
     const base = BASE_URL.replace(/\/$/, "");
-    const items = await listUploadedPdfs(UPLOAD_DIR);
-    res.json({
-      pdfs: items.map((item) => ({
-        ...item,
-        viewUrl: `${base}/p/${item.id}`,
-        downloadUrl: `${base}/d/${item.id}`,
-      })),
-    });
+    const items = await listUploadedFiles(UPLOAD_DIR);
+    const files = items.map((item) => ({
+      ...item,
+      ...buildFileUrls(base, item),
+    }));
+    res.json({ files, pdfs: files });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: "Kon PDF-lijst niet laden." });
+    res.status(500).json({ error: "Kon bestandenlijst niet laden." });
   }
-});
+}
+
+app.get("/api/files", requireAuth, listFilesHandler);
+app.get("/api/pdfs", requireAuth, listFilesHandler);
 
 app.post("/api/upload", requireAuth, upload.single("file"), async (req, res) => {
   if (!req.file) {
     return res.status(400).json({ error: "Geen bestand geüpload." });
   }
 
-  const mime = req.file.mimetype;
-  if (mime !== "application/pdf" && mime !== "application/x-pdf") {
-    return res.status(400).json({ error: "Alleen PDF-bestanden zijn toegestaan." });
-  }
+  const originalName = req.file.originalname || "bestand.bin";
+  const safeName =
+    path.basename(originalName).replace(/[^\w.\- ()[\]]+/g, "_") || "bestand.bin";
 
-  if (!isPdfBuffer(req.file.buffer)) {
-    return res.status(400).json({ error: "Ongeldig PDF-bestand." });
+  const check = validateUpload(req.file.buffer, safeName, req.file.mimetype);
+  if (!check.ok) {
+    return res.status(400).json({ error: check.error });
   }
 
   const id = crypto.randomUUID();
-  const originalName = req.file.originalname || "document.pdf";
-  const safeName = path.basename(originalName).replace(/[^\w.\- ()[\]]+/g, "_") || "document.pdf";
+  const uploadedAt = new Date().toISOString();
+  const canView = canViewInline(check.mimeType);
 
   try {
-    await fs.writeFile(pdfPath(UPLOAD_DIR, id), req.file.buffer);
-    await fs.writeFile(
-      metaPath(UPLOAD_DIR, id),
-      JSON.stringify({ originalName: safeName, uploadedAt: new Date().toISOString() }),
-      "utf8",
-    );
+    await writeStoredFile(UPLOAD_DIR, id, req.file.buffer, {
+      originalName: safeName,
+      uploadedAt,
+      mimeType: check.mimeType,
+      ext: check.ext,
+    });
   } catch (err) {
     console.error(err);
     return res.status(500).json({ error: "Opslaan mislukt." });
   }
 
   const base = BASE_URL.replace(/\/$/, "");
+  const urls = buildFileUrls(base, { id });
   res.json({
     id,
-    viewUrl: `${base}/p/${id}`,
-    downloadUrl: `${base}/d/${id}`,
+    originalName: safeName,
+    mimeType: check.mimeType,
+    canViewInline: canView,
+    ...urls,
   });
 });
 
 app.get("/p/:id", async (req, res) => {
   const id = req.params.id;
-  if (!isValidPdfId(id)) {
+  if (!isValidFileId(id)) {
     return res.status(404).send("Niet gevonden");
   }
-  const filePath = pdfPath(UPLOAD_DIR, id);
-  if (!(await fileExists(filePath))) {
+  const filePath = await resolveStoredPath(UPLOAD_DIR, id);
+  if (!filePath) {
     return res.status(404).send("Niet gevonden");
   }
-  res.setHeader("Content-Type", "application/pdf");
+  const meta = await readMeta(UPLOAD_DIR, id);
+  const mimeType = meta.mimeType || "application/octet-stream";
+  if (!canViewInline(mimeType)) {
+    return res.redirect(`/d/${id}`);
+  }
+  res.setHeader("Content-Type", mimeType);
   res.setHeader("Content-Disposition", "inline");
   res.sendFile(filePath);
 });
 
 app.get("/d/:id", async (req, res) => {
   const id = req.params.id;
-  if (!isValidPdfId(id)) {
+  if (!isValidFileId(id)) {
     return res.status(404).send("Niet gevonden");
   }
-  const filePath = pdfPath(UPLOAD_DIR, id);
-  if (!(await fileExists(filePath))) {
+  const filePath = await resolveStoredPath(UPLOAD_DIR, id);
+  if (!filePath) {
     return res.status(404).send("Niet gevonden");
   }
   const meta = await readMeta(UPLOAD_DIR, id);
-  res.setHeader("Content-Type", "application/pdf");
+  const mimeType = meta.mimeType || "application/octet-stream";
+  res.setHeader("Content-Type", mimeType);
   res.setHeader("Content-Disposition", `attachment; filename="${meta.originalName}"`);
   res.sendFile(filePath);
 });

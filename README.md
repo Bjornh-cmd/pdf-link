@@ -1,6 +1,6 @@
 # PDF Link
 
-Upload PDF’s na e-mailverificatie en deel publieke links (`/p/:id`, `/d/:id`).
+Upload bestanden (PDF, STL, afbeeldingen, zip, …) na e-mailverificatie en deel publieke links (`/p/:id` bekijken waar mogelijk, `/d/:id` download).
 
 - **Lokaal:** `cp .env.example .env` → vul secrets in → `docker compose up --build`
 - **Productie (Coolify):** [docs/COOLIFY.md](docs/COOLIFY.md) — domein `https://pdf.bjorn-sites.nl`

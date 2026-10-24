@@ -60,19 +60,20 @@ async function copyText(text) {
 
 async function loadPdfLibrary() {
   if (!pdfLibraryEl) return;
-  const res = await fetch("/api/pdfs", { credentials: "include" });
+  const res = await fetch("/api/files", { credentials: "include" });
   const data = await res.json();
   if (!res.ok) {
-    showAlert(data.error || "Kon PDF-lijst niet laden.");
+    showAlert(data.error || "Kon bestandenlijst niet laden.");
     return;
   }
 
   pdfLibraryEl.innerHTML = "";
-  const pdfs = data.pdfs || [];
-  libraryEmptyEl.classList.toggle("hidden", pdfs.length > 0);
+  const files = data.files || data.pdfs || [];
+  libraryEmptyEl.classList.toggle("hidden", files.length > 0);
 
-  for (const pdf of pdfs) {
+  for (const file of files) {
     const li = document.createElement("li");
+    const openUrl = file.canViewInline ? file.viewUrl : file.downloadUrl;
     li.innerHTML = `
       <div class="pdf-item-main">
         <p class="pdf-item-name"></p>
@@ -80,15 +81,20 @@ async function loadPdfLibrary() {
       </div>
       <div class="pdf-item-actions">
         <a class="btn btn-ghost" href="" target="_blank" rel="noopener">Openen</a>
-        <button type="button" class="btn btn-ghost" data-copy-view>Kopieer bekijken</button>
+        <button type="button" class="btn btn-ghost" data-copy-view hidden>Kopieer bekijken</button>
         <button type="button" class="btn btn-primary" data-copy-download>Kopieer download</button>
       </div>
     `;
-    li.querySelector(".pdf-item-name").textContent = pdf.originalName;
-    li.querySelector(".pdf-item-meta").textContent = `${formatDate(pdf.uploadedAt)} · ${formatSize(pdf.sizeBytes)}`;
-    li.querySelector("a").href = pdf.viewUrl;
-    li.querySelector("[data-copy-view]").addEventListener("click", () => copyText(pdf.viewUrl));
-    li.querySelector("[data-copy-download]").addEventListener("click", () => copyText(pdf.downloadUrl));
+    li.querySelector(".pdf-item-name").textContent = file.originalName;
+    const typeLabel = file.ext ? file.ext.toUpperCase() : "FILE";
+    li.querySelector(".pdf-item-meta").textContent = `${typeLabel} · ${formatDate(file.uploadedAt)} · ${formatSize(file.sizeBytes)}`;
+    li.querySelector("a").href = openUrl;
+    const viewBtn = li.querySelector("[data-copy-view]");
+    if (file.canViewInline) {
+      viewBtn.hidden = false;
+      viewBtn.addEventListener("click", () => copyText(file.viewUrl));
+    }
+    li.querySelector("[data-copy-download]").addEventListener("click", () => copyText(file.downloadUrl));
     pdfLibraryEl.appendChild(li);
   }
 }
@@ -338,10 +344,6 @@ fileInput.addEventListener("change", () => {
 
 async function uploadFile(file) {
   hideAlert();
-  if (file.type !== "application/pdf" && !file.name.toLowerCase().endsWith(".pdf")) {
-    showAlert("Alleen PDF-bestanden zijn toegestaan.");
-    return;
-  }
   const form = new FormData();
   form.append("file", file);
   const res = await fetch("/api/upload", {
@@ -354,10 +356,17 @@ async function uploadFile(file) {
     showAlert(data.error || "Upload mislukt.");
     return;
   }
-  viewUrlInput.value = data.viewUrl;
   downloadUrlInput.value = data.downloadUrl;
+  const viewBlock = document.getElementById("view-link-block");
+  if (data.canViewInline) {
+    viewUrlInput.value = data.viewUrl;
+    viewBlock.classList.remove("hidden");
+  } else {
+    viewUrlInput.value = "";
+    viewBlock.classList.add("hidden");
+  }
   uploadResult.classList.remove("hidden");
-  showAlert("PDF geüpload. Deel de links hieronder.", "success");
+  showAlert("Bestand geüpload. Deel de downloadlink (STL en meer wordt gedownload).", "success");
   await loadPdfLibrary();
 }
 
@@ -385,6 +394,10 @@ try {
     const config = await configRes.json();
     if (config.loginEmail && loginEmailEl) {
       loginEmailEl.textContent = config.loginEmail;
+    }
+    const hint = document.getElementById("allowed-types-hint");
+    if (hint && config.allowedExtensions?.length) {
+      hint.textContent = `Toegestaan: ${config.allowedExtensions.map((e) => `.${e}`).join(", ")}`;
     }
   }
   await refreshAuth();

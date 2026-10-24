@@ -1,7 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { getCredentials, migrateLegacyDataDir, dataDir as getDataDir } from "./auth/store.js";
-import { listUploadedPdfs } from "./pdf.js";
+import { listUploadedFiles } from "./files.js";
 
 async function assertWritable(dir) {
   const probe = path.join(dir, `.probe-${Date.now()}`);
@@ -25,21 +25,27 @@ export async function initPersistentStorage(uploadDir) {
     );
   }
 
-  const pdfs = await listUploadedPdfs(uploadDir);
+  const files = await listUploadedFiles(uploadDir);
   const credentials = await getCredentials();
 
   console.log(
-    `[storage] uploads=${uploadDir} data=${appDataDir} pdfs=${pdfs.length} passkeys=${credentials.length}`,
+    `[storage] uploads=${uploadDir} data=${appDataDir} files=${files.length} passkeys=${credentials.length}`,
   );
 
-  return { uploadDir, dataDir: appDataDir, pdfCount: pdfs.length, passkeyCount: credentials.length };
+  return {
+    uploadDir,
+    dataDir: appDataDir,
+    fileCount: files.length,
+    passkeyCount: credentials.length,
+  };
 }
 
 export async function getStorageStats(uploadDir) {
-  const pdfs = await listUploadedPdfs(uploadDir);
+  const files = await listUploadedFiles(uploadDir);
   const credentials = await getCredentials();
   return {
-    pdfCount: pdfs.length,
+    fileCount: files.length,
+    pdfCount: files.length,
     passkeyCount: credentials.length,
     dataDir: getDataDir(),
     uploadDir,

@@ -20,10 +20,10 @@
 
       <main class="main">
         <header class="page-header">
-          <p class="kicker">PDF hosting</p>
+          <p class="kicker">Bestandsopslag</p>
           <h1>PDF Link</h1>
           <p class="lede">
-            Upload een PDF en deel een link om te bekijken of te downloaden.
+            Mini-NAS: upload bestanden (PDF, STL, afbeeldingen, zip, …) en deel een link.
           </p>
         </header>
 
@@ -56,14 +56,14 @@
           <div class="surface-head upload-head">
             <div>
               <h2>Beheer</h2>
-              <p class="surface-desc">Upload en beheer je PDF&apos;s.</p>
+              <p class="surface-desc">Upload en beheer je bestanden.</p>
             </div>
             <button type="button" id="logout-btn" class="btn btn-text">Uitloggen</button>
           </div>
 
           <div class="tabs workspace-tabs" role="tablist">
             <button type="button" class="tab active" data-workspace="upload" role="tab">Upload</button>
-            <button type="button" class="tab" data-workspace="library" role="tab">PDF&apos;s</button>
+            <button type="button" class="tab" data-workspace="library" role="tab">Bestanden</button>
           </div>
 
           <div id="workspace-upload" class="workspace-panel">
@@ -76,16 +76,17 @@
             <p id="passkey-settings-status" class="fine-print"></p>
           </section>
 
-          <div id="dropzone" class="dropzone" tabindex="0" role="button" aria-label="PDF selecteren">
-            <span class="dropzone-label">Sleep een PDF hierheen</span>
+          <div id="dropzone" class="dropzone" tabindex="0" role="button" aria-label="Bestand selecteren">
+            <span class="dropzone-label">Sleep een bestand hierheen</span>
             <span class="dropzone-or">of</span>
             <span class="dropzone-action">Bestand kiezen</span>
-            <input id="file-input" type="file" accept="application/pdf,.pdf" hidden />
+            <input id="file-input" type="file" hidden />
           </div>
+          <p class="fine-print" id="allowed-types-hint"></p>
 
           <div id="upload-result" class="result hidden">
             <p class="result-title">Link gereed</p>
-            <div class="link-block">
+            <div id="view-link-block" class="link-block">
               <label for="view-url">Bekijken</label>
               <div class="link-row">
                 <input id="view-url" type="text" readonly />
@@ -103,8 +104,8 @@
           </div>
 
           <div id="workspace-library" class="workspace-panel hidden">
-            <p class="surface-desc">Alle geüploade PDF&apos;s op deze server.</p>
-            <p id="library-empty" class="fine-print hidden">Nog geen PDF&apos;s geüpload.</p>
+            <p class="surface-desc">Alle bestanden op deze server (NAS-overzicht).</p>
+            <p id="library-empty" class="fine-print hidden">Nog geen bestanden geüpload.</p>
             <ul id="pdf-library" class="pdf-library"></ul>
           </div>
         </section>

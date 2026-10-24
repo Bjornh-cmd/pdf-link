@@ -335,6 +335,10 @@ input[type="text"]:focus {
   margin-bottom: 16px;
 }
 
+.link-block.hidden {
+  display: none;
+}
+
 .link-row {
   display: grid;
   grid-template-columns: 1fr auto;
